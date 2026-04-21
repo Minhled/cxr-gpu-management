@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUẢN LÝ VẬN HÀNH GPU - VIETJET</title>
+    <style>
+        :root { --primary: #d32f2f; --secondary: #1976d2; }
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { color: var(--primary); text-align: center; font-size: 1.2em; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-top: 0; }
+        .section { border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin: 10px 0 5px; font-size: 0.85em; color: #333; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .checklist { background: #fffde7; padding: 10px; border-radius: 5px; margin-top: 10px; border: 1px solid #f9e79f; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-save:active { background: #b71c1c; }
+        .btn-export { background: #4caf50; color: white; margin-top: 20px; }
+        .btn-clear { background: #9e9e9e; color: white; font-size: 0.8em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.8em; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background: #f8f9fa; }
+        small { color: #666; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>HỆ THỐNG GIÁM SÁT GPU CXR</h2>
+    
+    <div class="section">
+        <div class="grid">
+            <div>
+                <label>MS Nhân viên:</label>
+                <input type="text" id="staffId" placeholder="VD: VJC1234">
+            </div>
+            <div>
+                <label>Mã GPU:</label>
+                <input type="text" id="gpuId" placeholder="VD: GPU-01">
+            </div>
+            <div>
+                <label>Số Đuôi (AC):</label>
+                <input type="text" id="acReg" placeholder="VD: VN-A650">
+            </div>
+            <div>
+                <label>Dầu còn lại (%):</label>
+                <input type="number" id="oil" placeholder="0">
+            </div>
+        </div>
+
+        <div class="checklist">
+            <label style="margin-top:0">Kiểm tra kỹ thuật (Pre-check):</label>
+            <input type="checkbox" id="c1"> Ngoại quan/Cáp OK <br>
+            <input type="checkbox" id="c2"> Dầu/Nước/Nhiên liệu OK <br>
+            <input type="checkbox" id="c3"> Thiết bị PCCC OK
+        </div>
+
+        <div class="grid">
+            <div>
+                <label>Đồng hồ Bắt đầu:</label>
+                <input type="number" id="startH" step="0.1">
+            </div>
+            <div>
+                <label>Đồng hồ Kết thúc:</label>
+                <input type="number" id="endH" step="0.1">
+            </div>
+        </div>
+        
+        <label>Lỗi/Cảnh báo phát sinh:</label>
+        <input type="text" id="fault" placeholder="Ghi chú lỗi nếu có">
+
+        <button class="btn-save" onclick="saveData()">LƯU NHẬT KÝ</button>
+    </div>
+
+    <h3>Lịch sử vận hành</h3>
+    <div style="overflow-x:auto">
+        <table id="logTable">
+            <thead>
+                <tr>
+                    <th>Tàu / Thời gian</th>
+                    <th>Tổng Giờ / NV</th>
+                    <th>Dầu</th>
+                    <th>Lỗi</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <button class="btn-export" onclick="exportToCSV()">XUẤT BÁO CÁO (CSV)</button>
+    <button class="btn-clear" onclick="clearData()">XÓA DỮ LIỆU CŨ</button>
+</div>
+
+<script>
+    // Load dữ liệu khi mở ứng dụng
+    window.onload = () => {
+        renderTable();
+        const logs = JSON.parse(localStorage.getItem('gpu_logs') || "[]");
+        if(logs.length > 0) {
+            // Tự động điền lại thông tin cũ để NV đỡ phải nhập lại
+            document.getElementById('startH').value = logs[0].endH;
+            document.getElementById('gpuId').value = logs[0].gpuId;
+            document.getElementById('staffId').value = logs[0].staffId || "";
+        }
+    };
+
+    function saveData() {
+        const staffId = document.getElementById('staffId').value.trim();
+        const gpuId = document.getElementById('gpuId').value.trim();
+        const acReg = document.getElementById('acReg').value.trim();
+        const startH = parseFloat(document.getElementById('startH').value);
+        const endH = parseFloat(document.getElementById('endH').value);
+        const oil = document.getElementById('oil').value;
+        const fault = document.getElementById('fault').value || "None";
+        
+        const total = (endH - startH).toFixed(2);
+
+        if(!staffId || !gpuId || isNaN(total) || total < 0) {
+            alert("Vui lòng điền đầy đủ MSNV, Mã GPU và số giờ hợp lệ!");
+            return;
+        }
+
+        const data = {
+            staffId,
+            gpuId,
+            acReg,
+            startH,
+            endH,
+            oil,
+            fault,
+            date: new Date().toLocaleString('vi-VN'),
+            total
+        };
+
+        let logs = JSON.parse(localStorage.getItem('gpu_logs') || "[]");
+        logs.unshift(data); 
+        localStorage.setItem('gpu_logs', JSON.stringify(logs));
+        
+        alert("Đã lưu thành công!");
+        location.reload(); 
+    }
+
+function renderTable() {
+    const logs = JSON.parse(localStorage.getItem('gpu_logs') || "[]");
+    const tbody = document.querySelector('#logTable tbody');
+    tbody.innerHTML = logs.map((log, index) => `
+        <tr>
+            <td><strong>${log.acReg}</strong><br><small>${log.date}</small></td>
+            <td>${log.total}h<br><small>NV: ${log.staffId}</small></td>
+            <td>${log.oil}%</td>
+            <td>
+                ${log.fault} <br>
+                <button onclick="exportSingleLog(${index})" style="padding:2px 5px; font-size:10px; width:auto; background:#1976d2; margin-top:5px;">TẢI FILE</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+
+    function exportToCSV() {
+        const logs = JSON.parse(localStorage.getItem('gpu_logs') || "[]");
+        if(logs.length === 0) return;
+
+        let csv = "\ufeff"; // BOM để hiển thị tiếng Việt trong Excel
+        csv += "Thoi gian,Nhan vien,GPU,Tau bay,Gio Bat dau,Gio Ket thuc,Tong gio,Dau con lai,Loi\n";
+        
+        logs.forEach(log => {
+            csv += `${log.date},${log.staffId},${log.gpuId},${log.acReg},${log.startH},${log.endH},${log.total},${log.oil},${log.fault}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Bao_cao_GPU_${new Date().toLocaleDateString('vi-VN').replace(/\//g,'-')}.csv`;
+        link.click();
+    }
+function exportSingleLog(index) {
+    const logs = JSON.parse(localStorage.getItem('gpu_logs') || "[]");
+    const log = logs[index];
+    
+    let csv = "\ufeff";
+    csv += "Thoi gian,Nhan vien,GPU,Tau bay,Gio Bat dau,Gio Ket thuc,Tong gio,Dau con lai,Loi\n";
+    csv += `${log.date},${log.staffId},${log.gpuId},${log.acReg},${log.startH},${log.endH},${log.total},${log.oil},${log.fault}\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    // Tên file riêng biệt theo số đuôi tàu và thời gian
+    link.download = `GPU_${log.acReg}_${log.date.replace(/[/ :]/g,'-')}.csv`;
+    link.click();
+}
+
+    function clearData() {
+        if(confirm("Bạn có chắc chắn muốn xóa hết lịch sử không?")) {
+            localStorage.removeItem('gpu_logs');
+            location.reload();
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -45,9 +45,15 @@
                 <input type="text" id="acReg" placeholder="VD: VN-A650">
             </div>
             <div>
-                <label>Dầu còn lại (%):</label>
+                <label>Dầu sau khi sử dụng (%):</label>
                 <input type="number" id="oil" placeholder="0">
             </div>
+            <div>
+    <label>Dầu trước khi sử dụng (%):</label>
+    <input type="number" id="oil" placeholder="Dầu ca trước chuyển sang">
+    <small id="oilNote" style="color: #d32f2f; font-size: 0.75em;"></small>
+</div>
+
         </div>
 
         <div class="checklist">
@@ -95,16 +101,26 @@
 
 <script>
     // Load dữ liệu khi mở ứng dụng
-    window.onload = () => {
-        renderTable();
-        const logs = JSON.parse(localStorage.getItem('gpu_logs') || "[]");
-        if(logs.length > 0) {
-            // Tự động điền lại thông tin cũ để NV đỡ phải nhập lại
-            document.getElementById('startH').value = logs[0].endH;
-            document.getElementById('gpuId').value = logs[0].gpuId;
-            document.getElementById('staffId').value = logs[0].staffId || "";
-        }
-    };
+window.onload = () => {
+    renderTable();
+    const logs = JSON.parse(localStorage.getItem('gpu_logs') || "[]");
+    if(logs.length > 0) {
+        const lastLog = logs[0]; // Lấy bản ghi gần nhất
+        
+        // Tự động điền giờ kết thúc cũ vào giờ bắt đầu mới
+        document.getElementById('startH').value = lastLog.endH;
+        
+        // Hiển thị mức dầu còn lại của ca trước vào ô nhập
+        document.getElementById('oil').value = lastLog.oil;
+        
+        // Giữ lại các thông tin cố định
+        document.getElementById('gpuId').value = lastLog.gpuId;
+        document.getElementById('staffId').value = lastLog.staffId || "";
+        document.getElementById('oilNote').innerText = `* Ca trước còn: ${lastLog.oil}%`;
+
+    }
+};
+
 
     function saveData() {
         const staffId = document.getElementById('staffId').value.trim();
@@ -199,6 +215,10 @@ function exportSingleLog(index) {
         }
     }
 </script>
+
+</body>
+</html>
+
 
 </body>
 </html>
